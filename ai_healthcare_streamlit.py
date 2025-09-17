@@ -6,7 +6,7 @@ Features included (starter):
 - Simple training dataset embedded (small) and a MultinomialNB text classifier
 - Keyword-based symptom extraction (lightweight NER)
 - Heuristic risk scoring and triage (Self-care / See doctor / Emergency)
-- Text input + audio file upload (speech-to-text via SpeechRecognition if available)
+- Text input only (audio upload removed for simplicity)
 - Offline TTS reply via pyttsx3 (if available)
 - Doctor dashboard (password protected) that shows saved queries and simple analytics
 - Save queries locally to `queries.csv`
@@ -173,20 +173,6 @@ def save_query(record, filename='queries.csv'):
         df = df_new
     df.to_csv(filename, index=False)
 
-def recognize_audio_file(uploaded_file):
-    if sr is None:
-        raise RuntimeError('SpeechRecognition library not available')
-    r = sr.Recognizer()
-    data = uploaded_file.read()
-    audio_bytes = io.BytesIO(data)
-    try:
-        with sr.AudioFile(audio_bytes) as source:
-            audio = r.record(source)
-        text = r.recognize_google(audio)
-        return text
-    except Exception as e:
-        raise RuntimeError(f'Audio recognition failed: {e}')
-
 def speak_text(text):
     if pyttsx3 is None:
         return False
@@ -224,36 +210,18 @@ with st.sidebar:
     st.markdown('---')
     st.write('Quick tips:')
     st.write('- Keep inputs short: list of symptoms works best.')
-    st.write('- Upload a recorded .wav file if you want speech-to-text.')
 
 # Two columns
 col1, col2 = st.columns([2,1])
 
 with col1:
     st.subheader('Chat / Symptom Input')
-    input_mode = st.radio('Choose input mode', ['Text', 'Upload audio (.wav)'])
+    user_input = st.text_area('Describe symptoms (eg: fever, cough, headache)', height=140)
 
-    user_input = ''
-
-    if input_mode == 'Text':
-        user_input = st.text_area('Describe symptoms (eg: fever, cough, headache)', height=140)
-    else:
-        uploaded_audio = st.file_uploader("Upload your recorded symptoms (.wav)", type=["wav"])
-        
-        if uploaded_audio is not None:
-            st.audio(uploaded_audio, format='audio/wav')
-            if sr is not None:
-                try:
-                    user_input = recognize_audio_file(uploaded_audio)
-                    st.success(f"Recognized speech: {user_input}")
-                except Exception as e:
-                    st.error(f"Audio transcription failed: {e}")
-            else:
-                st.warning("SpeechRecognition not installed — only playback works.")
 
     if st.button('Analyze'):
         if not user_input or user_input.strip() == '':
-            st.warning('Please enter symptoms or upload audio.')
+            st.warning('Please enter symptoms.')
         else:
             with st.spinner('Analyzing...'):
                 preds = predict_conditions(user_input, top_n=3)

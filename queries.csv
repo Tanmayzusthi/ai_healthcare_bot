@@ -16,4 +16,5 @@ timestamp,input_text,predicted,confidence,risk_score,triage
 2025-09-17T17:02:01.334862,"i have tb
 ",Allergy,0.125,12,Self-care at home; monitor symptoms. See doctor if worsens.
 2025-09-17T17:02:18.990465,"i have tubercolocis
-",Allergy,0.12500000000000003,12,Self-care at home; monitor symptoms. See doctor if worsens.
+",Allergy,0.125,12,Self-care at home; monitor symptoms. See doctor if worsens.
+2025-09-17T20:29:23.751253,i have stomach pain,Gastroenteritis,0.43786869983588267,43,Consult a doctor soon (within 24-48 hours)
