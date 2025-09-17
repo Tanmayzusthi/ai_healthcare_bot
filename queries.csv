@@ -1,0 +1,19 @@
+timestamp,input_text,predicted,confidence,risk_score,triage
+2025-09-13T20:06:06.872048,"headache
+",Migraine,0.4290148672373161,42,Consult a doctor soon (within 24-48 hours)
+2025-09-13T20:07:15.971330,"tb
+",Allergy,0.125,12,Self-care at home; monitor symptoms. See doctor if worsens.
+2025-09-13T20:10:32.597024,high fever,Flu,0.7575434235889545,100,EMERGENCY - Go to nearest emergency department now
+2025-09-13T20:19:59.555277,I have a bad headache plus vomit,Migraine,0.4290148672373161,42,Consult a doctor soon (within 24-48 hours)
+2025-09-13T20:21:03.413479,Blood vomit,Allergy,0.125,12,Self-care at home; monitor symptoms. See doctor if worsens.
+2025-09-14T11:48:24.246272,"abdonimal pain vomiting
+",Gastroenteritis,0.8049406996066664,80,EMERGENCY - Go to nearest emergency department now
+2025-09-14T19:01:22.580623,i have pain in stomach also have a very strong headache and i am scare of water,Cardiac Issue,0.4047446668797839,40,Consult a doctor soon (within 24-48 hours)
+2025-09-14T19:25:32.646157,I have a very serious headache and I have a fever of 103 degree Fahrenheit and also I have a stomach ache I don't know why please help me,Flu,0.5756800974514098,72,Consult a doctor soon (within 24-48 hours)
+2025-09-14T19:27:46.073299,I have a very serious headache and I have a fever of 103 degree Fahrenheit and also I have a stomach ache I don't know why please help me,Flu,0.5756800974514098,72,Consult a doctor soon (within 24-48 hours)
+2025-09-14T19:31:46.265207,i have fever of 102 f and stomach ache plus vomiting please analyze ,Viral Infection,0.3699862576356741,51,Consult a doctor soon (within 24-48 hours)
+2025-09-14T19:39:14.962284,i have fever of 102 and stomach ache plus vomiting,Viral Infection,0.3699862576356741,51,Consult a doctor soon (within 24-48 hours)
+2025-09-17T17:02:01.334862,"i have tb
+",Allergy,0.125,12,Self-care at home; monitor symptoms. See doctor if worsens.
+2025-09-17T17:02:18.990465,"i have tubercolocis
+",Allergy,0.12500000000000003,12,Self-care at home; monitor symptoms. See doctor if worsens.
