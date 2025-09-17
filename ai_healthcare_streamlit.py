@@ -216,7 +216,11 @@ col1, col2 = st.columns([2,1])
 
 with col1:
     st.subheader('Chat / Symptom Input')
-    user_input = st.text_area('Describe symptoms (eg: fever, cough, headache)', height=140)
+    user_input = st.text_area(
+    'Describe symptoms', 
+    placeholder='Write your symptoms here... (e.g., fever, cough, headache)', 
+    height=140
+)
 
 
     if st.button('Analyze'):
