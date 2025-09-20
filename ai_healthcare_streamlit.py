@@ -1,71 +1,30 @@
 """
-AI Healthcare Chatbot - Streamlit Starter
+AI Healthcare Chatbot - Streamlit LLM Upgrade
 Single-file Streamlit app to run a lightweight AI/ML-powered symptom-checker chatbot.
 
-Features included (starter):
-- Simple training dataset embedded (small) and a MultinomialNB text classifier
-- Keyword-based symptom extraction (lightweight NER)
-- Heuristic risk scoring and triage (Self-care / See doctor / Emergency)
-- Text input only (audio upload removed for simplicity)
-- Offline TTS reply via pyttsx3 (if available)
-- Doctor dashboard (password protected) that shows saved queries and simple analytics
-- Save queries locally to `queries.csv`
+Updates:
+- Uses LLM (flan-t5-small) for symptom -> condition prediction
+- Offline CPU-friendly
+- Keeps existing triage, risk scoring, and doctor dashboard
 """
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import os
-import io
 from datetime import datetime
 
-# Machine Learning imports
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import cross_val_score
+# LLM imports
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
 
-# Optional features (import lazily)
-try:
-    import speech_recognition as sr
-except Exception:
-    sr = None
-
+# Optional TTS
 try:
     import pyttsx3
 except Exception:
     pyttsx3 = None
 
 # ---------------------------
-# Embedded training data (small toy dataset)
-# ---------------------------
-TRAIN_DATA = [
-    ("fever cough body ache sore throat", "Flu"),
-    ("high fever chills cough and body pain", "Flu"),
-    ("runny nose sneezing itchy eyes", "Allergy"),
-    ("sneezing nasal congestion itchy throat", "Allergy"),
-    ("abdominal pain vomiting diarrhea", "Gastroenteritis"),
-    ("vomiting stomach cramps watery stools", "Gastroenteritis"),
-    ("headache sensitivity to light nausea", "Migraine"),
-    ("throbbing headache with nausea", "Migraine"),
-    ("chest pain shortness of breath sweating", "Cardiac Issue"),
-    ("severe chest tightness and short breath", "Cardiac Issue"),
-    ("mild cough sore throat no fever", "Common Cold"),
-    ("sore throat sneezing mild cough", "Common Cold"),
-    ("fever dry cough loss of smell taste", "Viral Infection"),
-    ("fever body ache tiredness", "Viral Infection"),
-    ("painful urination lower abdominal pain", "Urinary Tract Infection"),
-    ("burning pee frequency urgency", "Urinary Tract Infection"),
-]
-
-# Expand dataset slightly by simple paraphrases
-EXTRA = []
-for text, label in TRAIN_DATA:
-    EXTRA.append((text + " " + label.lower(), label))
-TRAIN_DATA.extend(EXTRA)
-
-# ---------------------------
-# Light NER / keyword lists
+# Symptom keywords / self-care
 # ---------------------------
 SYMPTOM_KEYWORDS = {
     'fever': ['fever', 'temperature', 'hot', 'chills'],
@@ -101,26 +60,28 @@ SELF_CARE_TIPS = {
 }
 
 # ---------------------------
-# Model training (small, in-memory)
+# Load LLM
 # ---------------------------
-def build_and_train_model(train_data):
-    X = [t for t, l in train_data]
-    y = [l for t, l in train_data]
-    pipeline = Pipeline([
-        ('vect', CountVectorizer(ngram_range=(1,2), max_features=2000)),
-        ('clf', MultinomialNB())
-    ])
-    pipeline.fit(X, y)
-    return pipeline
+@st.cache_resource
+def load_llm():
+    tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
+    model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
+    return tokenizer, model
 
-MODEL = build_and_train_model(TRAIN_DATA)
+TOKENIZER, MODEL_LLM = load_llm()
 
-# Quick cross-validation score on tiny dataset (for display only)
-try:
-    cv_scores = cross_val_score(MODEL, [t for t,l in TRAIN_DATA], [l for t,l in TRAIN_DATA], cv=3)
-    CV_SCORE = float(cv_scores.mean())
-except Exception:
-    CV_SCORE = None
+# ---------------------------
+# LLM prediction function
+# ---------------------------
+def llm_predict(text, max_new_tokens=50):
+    if not text.strip():
+        return []
+    input_text = f"Given these symptoms: {text}. Predict possible conditions:"
+    inputs = TOKENIZER(input_text, return_tensors="pt")
+    outputs = MODEL_LLM.generate(**inputs, max_new_tokens=max_new_tokens)
+    preds = TOKENIZER.decode(outputs[0], skip_special_tokens=True)
+    # Split multiple conditions by semicolon
+    return [x.strip() for x in preds.split(';') if x.strip()]
 
 # ---------------------------
 # Utilities
@@ -134,7 +95,7 @@ def extract_symptoms_from_text(text):
                 found.add(key)
     return sorted(list(found))
 
-def compute_risk_score(text, top_prob):
+def compute_risk_score(text, top_prob=0.8):  # top_prob default as heuristic
     base = int(top_prob * 100)
     text_low = text.lower()
     for kw in SEVERITY_KEYWORDS['emergency']:
@@ -155,14 +116,6 @@ def triage_recommendation(score):
         return 'Consult a doctor soon (within 24-48 hours)'
     else:
         return 'Self-care at home; monitor symptoms. See doctor if worsens.'
-
-def predict_conditions(text, top_n=3):
-    if not text or text.strip() == "":
-        return []
-    probs = MODEL.predict_proba([text])[0]
-    classes = MODEL.classes_
-    paired = sorted(zip(classes, probs), key=lambda x: x[1], reverse=True)
-    return paired[:top_n]
 
 def save_query(record, filename='queries.csv'):
     df_new = pd.DataFrame([record])
@@ -185,13 +138,13 @@ def speak_text(text):
         return False
 
 # ---------------------------
-# Streamlit App UI
+# Streamlit UI
 # ---------------------------
-st.set_page_config(page_title='AI Healthcare Chatbot (Starter)', layout='wide')
-st.title('AI-assisted Symptom Checker — Starter')
+st.set_page_config(page_title='AI Healthcare Chatbot (LLM)', layout='wide')
+st.title('AI-assisted Symptom Checker — LLM Upgrade')
 st.markdown("""
-A lightweight prototype to demo: symptom extraction, small ML-based condition prediction, risk scoring and triage.
-This is a starter template for hackathon/demo use. Expand the dataset and replace heuristics with better models for production.
+LLM-based chatbot to predict conditions from symptoms. Offline CPU-compatible.
+Triage and self-care tips remain heuristic-based.
 """)
 
 with st.sidebar:
@@ -203,43 +156,37 @@ with st.sidebar:
     if not doc_password:
         doc_password = DOC_DEFAULT
     st.markdown('---')
-    st.write('Model info:')
-    if CV_SCORE:
-        st.write(f'Cross-val score (toy data): {CV_SCORE:.2f}')
-    st.write('Model type: Naive Bayes (text)')
-    st.markdown('---')
     st.write('Quick tips:')
-    st.write('- Keep inputs short: list of symptoms works best.')
+    st.write('- Keep inputs concise for best results.')
 
-# Two columns
 col1, col2 = st.columns([2,1])
 
 with col1:
     st.subheader('Chat / Symptom Input')
     user_input = st.text_area(
-    'Describe symptoms', 
-    placeholder='Write your symptoms here... (e.g., fever, cough, headache)', 
-    height=140
-)
-
+        'Describe symptoms', 
+        placeholder='Write your symptoms here... (e.g., fever, cough, headache)', 
+        height=140
+    )
 
     if st.button('Analyze'):
-        if not user_input or user_input.strip() == '':
+        if not user_input.strip():
             st.warning('Please enter symptoms.')
         else:
             with st.spinner('Analyzing...'):
-                preds = predict_conditions(user_input, top_n=3)
-                top_condition, top_prob = preds[0]
+                preds = llm_predict(user_input)
+                top_condition = preds[0] if preds else "Unknown"
+                other_conditions = preds[1:] if len(preds) > 1 else []
                 symptoms_found = extract_symptoms_from_text(user_input)
-                score = compute_risk_score(user_input, top_prob)
+                score = compute_risk_score(user_input)
                 triage = triage_recommendation(score)
 
             st.markdown('### Prediction')
-            st.write(f'**Likely condition:** {top_condition} ({top_prob*100:.1f}% confidence)')
-            if len(preds) > 1:
+            st.write(f'**Likely condition:** {top_condition}')
+            if other_conditions:
                 st.write('Other possible conditions:')
-                for c, p in preds[1:]:
-                    st.write(f'- {c} ({p*100:.1f}%)')
+                for c in other_conditions:
+                    st.write(f'- {c}')
 
             st.markdown('### Symptoms detected')
             st.write(', '.join(symptoms_found) if symptoms_found else 'No keywords detected.')
@@ -256,7 +203,7 @@ with col1:
                 'timestamp': datetime.now().isoformat(),
                 'input_text': user_input,
                 'predicted': top_condition,
-                'confidence': float(top_prob),
+                'confidence': 0.8,  # heuristic for CPU model
                 'risk_score': int(score),
                 'triage': triage
             }
@@ -270,26 +217,25 @@ with col1:
                     if not ok:
                         st.warning('TTS not available on this machine.')
 
-            report_text = f"Timestamp: {record['timestamp']}\nInput: {record['input_text']}\nPrediction: {record['predicted']} ({record['confidence']*100:.1f}%)\nRisk score: {record['risk_score']}\nTriage: {record['triage']}\nAdvice: {tip}\n"
+            report_text = f"Timestamp: {record['timestamp']}\nInput: {record['input_text']}\nPrediction: {record['predicted']}\nRisk score: {record['risk_score']}\nTriage: {record['triage']}\nAdvice: {tip}\n"
             st.download_button('Download report (txt)', report_text, file_name='report.txt')
 
 with col2:
     st.subheader('Quick help & demo prompts')
-    st.write('Sample inputs to try:')
+    st.write('Sample inputs:')
     st.write('- "fever cough body ache"')
     st.write('- "runny nose sneezing itchy eyes"')
     st.write('- "abdominal pain vomiting"')
     st.write('- "chest pain and shortness of breath"')
     st.markdown('---')
     st.subheader('Notes for judges/demo')
-    st.write('- Lightweight prototype — emphasize the triage and doctor dashboard during demo.')
+    st.write('- LLM-based predictions; triage and doctor dashboard are still heuristic.')
 
 # ---------------------------
-# Doctor dashboard (secured demo)
+# Doctor dashboard (demo)
 st.markdown('---')
 st.header('Doctor Dashboard (demo)')
-st.info('Dashboard is password-protected. Ask admin for the credentials.')
-DOC_DEFAULT = 'doctor123'
+st.info('Password-protected. Ask admin for credentials.')
 entered = st.text_input('Doctor login — enter password', type='password')
 
 if entered:
@@ -312,9 +258,8 @@ if entered:
             if st.button('Export saved sessions (CSV)'):
                 st.download_button('Download CSV', df.to_csv(index=False), file_name='queries_export.csv')
         else:
-            st.info('No sessions saved yet. Interact with the chatbot and press Analyze to create sample records.')
+            st.info('No sessions saved yet. Interact with the chatbot and press Analyze.')
     else:
         st.error('Wrong password.')
 else:
     st.info('Enter password to unlock doctor dashboard.')
-
